@@ -1,4 +1,4 @@
-# DevDome Bot Protection
+# DevDome Bot Protection: Bot Blocker and AI Crawler Control
 
 Free WordPress plugin: detect and block harmful bots, control AI crawlers and search engines in Known Bots, and review bot traffic without CAPTCHAs. Start in Record Bots, switch to Block Bad Bots when ready.
 

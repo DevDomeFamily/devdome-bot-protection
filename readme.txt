@@ -1,6 +1,6 @@
-=== DevDome Bot Protection ===
+=== DevDome Bot Protection: Bot Blocker and AI Crawler Control ===
 Contributors: devdome
-Tags: bot protection, security, crawler control, ai crawlers, firewall
+Tags: bot blocker, block ai crawlers, bad bots, crawler control, bot traffic
 Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -8,13 +8,15 @@ Stable tag: 1.0.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Detect and block harmful bots. Control crawler access and review traffic without CAPTCHAs.
+Block bad bots, control AI crawlers and review bot traffic with local detection and configurable rules, without CAPTCHAs.
 
 == Description ==
 
-DevDome Bot Protection detects scanners, exploit probes and unwanted automated traffic.
+DevDome Bot Protection is a bot blocker that detects scanners, exploit probes and unwanted automated traffic. Review bot traffic and block bad bots with configurable detection rules, request rate limits and custom rules, without CAPTCHAs.
 
-Start in Record Bots to review traffic before enabling blocking. Detection uses local rules and downloaded reference lists. No DevDome account is required.
+Use Known Bots for crawler control, with separate choices for supported AI training, search and user-request agents. Block AI crawlers through WordPress's virtual robots.txt and HTTP blocking in Block Bad Bots mode. Google-Extended and Applebot-Extended use robots.txt controls only.
+
+Start in Record Bots to review detected requests before enabling HTTP blocking. Local protection needs no account. Detection uses local rules, with reference lists downloaded when Outside Lookups is enabled. Known Bots robots.txt directives, the enabled honeypot and browser session collection operate independently of the protection mode.
 
 = Three modes =
 
@@ -293,3 +295,8 @@ Chart.js 4.5.1 (MIT, source at https://github.com/chartjs/Chart.js, license in a
 = 1.0.0 =
 
 * First public release.
+
+== Upgrade Notice ==
+
+= 1.0.4 =
+Privacy export and erase match exact addresses only; error texts redact secrets and server paths. Protection rules are unaffected.
