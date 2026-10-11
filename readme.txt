@@ -66,6 +66,14 @@ Connected sites also send built-in rule actions, supported custom rules, time zo
 4. Adjust Rules and Known Bots.
 5. Select Block Bad Bots on Overview when ready.
 
+== Screenshots ==
+
+1. Overview: choose Block Bad Bots, Record Bots or Turned Off, with the visits from bots and from people for the period.
+2. Activity: visits from bots and from people over the last 7 days.
+3. Rules: the built-in detection rules, each set to Allow, Log or Block.
+4. Known Bots: AI crawlers with a Blocked or Allowed switch per agent, training, search and user requests kept separate.
+5. Settings: the optional account connection, the threat feeds and the privacy settings.
+
 == Privacy and data storage ==
 
 The plugin stores data in your site's database:
