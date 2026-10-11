@@ -1,0 +1,104 @@
+/* Known Bots (Bot Protection 0.4.0): the DevDome dashboard's Known Bots view 1:1, ported from DEVDOME WEBSITE
+   features/analytics/dashboard.html (.view-bp rules). Scoped to .dd-app .view-bp so nothing leaks into other tabs. */
+.dd-app .view-bp{--bp-green:#059669;--bp-red:#dc2626;--bp-amber:#d97706;--bp-blue:#0b63c4;--bp-border:#e5e7eb;--bp-mut:#6b7280;--dd-measure:min(100%,1120px)}
+.dd-app .view-bp .bp-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:4px 0 20px;max-width:var(--dd-measure)}
+.dd-app .view-bp .bp-sub{font-size:13.5px;font-weight:400;line-height:1.5;color:#4b5563}
+/* width/wrap reset: the Overview's .dd-app .bp-actions rule (full width, wrapping) must not reach this row */
+.dd-app .view-bp .bp-actions{display:flex;align-items:center;gap:12px;flex:none;width:auto;margin:0 0 0 auto;flex-wrap:nowrap} /* rides the range bar, right side (the head row is gone, the bar sits where it sits on Rules) */
+.dd-app #bp-kb-view .bp-date-filter{margin-bottom:32px} /* Rules: the bar sits in a space-y-8 flow */
+/* In the dashboard these actions sit in the top bar on desktop; wp-admin has no top bar, so the round buttons show here and
+   collapse into the kebab at 1024px and below, exactly where the dashboard switches to its kebab. */
+.dd-app .bp-round{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border-radius:999px;border:1px solid var(--bp-border);background:#fff;color:#374151;cursor:pointer}
+.dd-app .bp-round:hover{background:#f8fbff;color:#1967d2;border-color:#1967d2}
+.dd-app .bp-round svg{width:17px;height:17px}
+.dd-app .view-bp .bpk-kebab-wrap{position:relative;display:none}
+.dd-app .view-bp .bpk-kebab{display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border:0;background:none;color:#374151;border-radius:8px;cursor:pointer}
+.dd-app .view-bp .bpk-kebab:hover{background:#f1f5f9}
+.dd-app .view-bp .bpk-kebab svg{width:20px;height:20px}
+.dd-app .view-bp .bpk-kebab-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:200px;display:flex;flex-direction:column;background:#fff;border:1px solid var(--bp-border);border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.12),0 2px 8px rgba(15,23,42,.06);padding:6px;z-index:60}
+.dd-app .view-bp .bpk-kebab-menu.hidden{display:none}
+.dd-app .view-bp .bpk-kebab-item{display:flex;align-items:center;gap:10px;padding:10px 12px;font-size:13px;font-weight:600;color:#111827;background:none;border:0;border-radius:8px;cursor:pointer;text-align:left;white-space:nowrap;font-family:inherit}
+.dd-app .view-bp .bpk-kebab-item:hover{background:#f8fafc}
+.dd-app .view-bp .bpk-kebab-item svg{width:15px;height:15px;flex:none}
+.dd-app .view-bp .bp-autosave{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--bp-mut)}
+.dd-app .view-bp .bp-autosave.saved{color:var(--bp-green)}
+.dd-app .view-bp .bp-autosave.error{color:var(--bp-red)}
+.dd-app .view-bp .bp-autosave svg{width:14px;height:14px}
+.dd-app .view-bp .bp-spin{display:inline-block;width:12px;height:12px;border:2px solid #cbd5e1;border-top-color:var(--bp-blue);border-radius:50%;animation:bpkspin .7s linear infinite}
+@keyframes bpkspin{to{transform:rotate(360deg)}}
+.dd-app .view-bp .bpk-legend{font-size:13.5px;line-height:1.5;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;margin:-4px 0 14px;max-width:var(--dd-measure);box-sizing:border-box}
+.dd-app .view-bp .bpk-legend[hidden]{display:none}
+/* date pills = the dashboard .controls-bar / .date-button, measured 1:1 (Roboto 14px / 500, line 1.6, antialiased) */
+@font-face{font-family:'Roboto';font-style:normal;font-weight:100 900;font-stretch:100%;font-display:swap;src:url(fonts/roboto-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:100 900;font-stretch:100%;font-display:swap;src:url(fonts/roboto-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+.dd-app .view-bp .controls-bar{background:#fff;padding:12px 8px;font-size:16px;line-height:1.6;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.08);display:flex;flex-wrap:wrap;justify-content:flex-start;align-items:center;gap:12px;margin-bottom:12px;max-width:var(--dd-measure);box-sizing:border-box}
+.dd-app .view-bp .date-buttons{display:flex;gap:0;flex-wrap:wrap;align-items:center}
+.dd-app .view-bp .date-button{position:relative;border:none;background:none;padding:6px 10px;font-size:14px;font-weight:500;color:#5f6368;border-radius:0;cursor:pointer;white-space:nowrap;font-family:'Roboto',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.dd-app .view-bp .date-button:not(:last-of-type)::after{content:"";position:absolute;right:0;top:50%;transform:translateY(-50%);width:1px;height:60%;background-color:#dadce0}
+.dd-app .view-bp .date-button[data-range="24h"]{border-top-left-radius:6px;border-bottom-left-radius:6px}
+.dd-app .view-bp .date-button.pl-last::after{display:none}
+.dd-app .view-bp .date-button:hover{background-color:#f1f3f4}
+.dd-app .view-bp .date-button.active{background-color:#e8f0fe;color:#1967d2;z-index:1}
+/* groups + rows */
+.dd-app .view-bp .bp-known-cols{display:grid;grid-template-columns:1fr;gap:16px;align-items:start;max-width:var(--dd-measure)}
+.dd-app .view-bp .bpk-group{background:#fff;border:1px solid var(--bp-border);border-radius:12px;padding:20px 24px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.dd-app .view-bp .bpk-head{display:flex;align-items:center;gap:8px;padding:2px 0 8px}
+.dd-app .view-bp .bpk-title{font-size:14px;font-weight:700;color:#111827}
+.dd-app .view-bp .bpk-head .all{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--bp-blue);cursor:pointer;border:1px solid #dbeafe;background:#eff6ff;border-radius:999px;padding:3px 10px;line-height:1.4;font-family:inherit}
+.dd-app .view-bp .bpk-head .all:hover{background:#dbeafe}
+.dd-app .view-bp .bpk-row{position:relative;display:flex;align-items:center;gap:16px;padding:14px 0;border-top:1px solid #f1f5f9;cursor:pointer;margin:0}
+.dd-app .view-bp .bpk-group .bpk-row:first-child{border-top:0}
+.dd-app .view-bp .bpk-info{min-width:0;flex:1}
+.dd-app .view-bp .bpk-nm{font-weight:600;font-size:13.5px;color:#0f172a}
+.dd-app .view-bp .bpk-ds{font-size:13.5px;font-weight:400;line-height:1.5;color:#4b5563;margin-top:2px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.dd-app .view-bp .bpk-ro{flex:none}
+.dd-app .view-bp .bpk-spark{position:relative;flex:none;width:440px;height:52px;cursor:crosshair}
+.dd-app .view-bp .bpk-spark svg{width:100%;height:100%;display:block}
+.dd-app .view-bp .bpk-num{flex:none;min-width:44px;text-align:right;font-size:13px;font-weight:650;color:#111827;font-variant-numeric:tabular-nums;transition:opacity .2s ease}
+.dd-app .view-bp .bpk-row.off .bpk-num{color:#9ca3af}
+.dd-app .view-bp .bpk-row.flashing .bpk-num{opacity:0}
+.dd-app .view-bp .bpk-state{flex:none;min-width:52px;text-align:right;font-size:11.5px;font-weight:650;color:var(--bp-green)}
+.dd-app .view-bp .bpk-state.blocked{color:var(--bp-red)}
+.dd-app .view-bp .bpk-flash{position:absolute;right:118px;top:50%;transform:translate(6px,-50%);font-size:11.5px;font-weight:650;opacity:0;transition:opacity .25s ease,transform .25s ease;pointer-events:none;white-space:nowrap}
+.dd-app .view-bp .bpk-flash.show{opacity:1;transform:translate(0,-50%)}
+.dd-app .view-bp .bpk-flash.ok{color:var(--bp-green)}
+.dd-app .view-bp .bpk-flash.no{color:var(--bp-red)}
+.dd-app .view-bp .bp-switch{position:relative;display:inline-block;width:42px;height:24px;flex:none;cursor:pointer}
+.dd-app .view-bp .bp-switch input{opacity:0;width:0;height:0;position:absolute;margin:0}
+.dd-app .view-bp .bp-switch .tr{position:absolute;inset:0;background:#cbd5e1;border-radius:999px;transition:background .18s}
+.dd-app .view-bp .bp-switch .tr::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .18s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.dd-app .view-bp .bp-switch input:checked + .tr{background:#1967d2}
+.dd-app .view-bp .bp-switch input:checked + .tr::after{transform:translateX(18px)}
+.dd-app .view-bp .bp-switch input:focus-visible + .tr{box-shadow:0 0 0 2px #fff,0 0 0 4px #1967d2}
+.bpk-cross{position:absolute;top:0;bottom:0;width:0;border-left:1px dashed rgba(15,23,42,.28);pointer-events:none}
+.bp-tip{position:fixed;z-index:100000;display:none;flex-direction:column;gap:6px;background:rgba(255,255,255,.98);color:#3c4043;border:1px solid #dadce0;border-radius:4px;pointer-events:none;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.1);padding:10px 12px;font-size:13px}
+.bp-tip-date{font-weight:400;color:#202124;font-size:14px;display:block}
+.bp-tip-row{display:flex;justify-content:space-between;align-items:center;gap:14px;font-size:13px;color:#3c4043}
+.bp-tip-label{display:flex;align-items:center;gap:8px}
+.bp-tip-chip{width:10px;height:10px;border-radius:2px;display:block;background:#1967d2}
+.bp-tip-value{font-weight:600;color:#1967d2}
+@media (max-width:1100px){.dd-app .view-bp .bpk-spark{width:260px}}
+@media (max-width:1024px){
+    .dd-app .bp-round{display:none}
+    .dd-app .view-bp .bpk-kebab-wrap{display:block}
+}
+@media (max-width:640px){
+    .dd-app .view-bp .bp-head{flex-wrap:wrap}
+    .dd-app .view-bp .bp-actions{flex-wrap:wrap}
+    .dd-app .view-bp .bpk-group{padding:14px;max-width:100%}
+    .dd-app .view-bp .bpk-row{flex-wrap:wrap;gap:8px 12px;padding:12px 0}
+    .dd-app .view-bp .bpk-info{display:contents}
+    .dd-app .view-bp .bpk-nm{order:1;flex:1 1 0;min-width:0}
+    .dd-app .view-bp .bpk-info .bpk-ds{order:4;flex:1 1 100%;min-width:0;margin-top:0}
+    .dd-app .view-bp .bpk-num{order:2}
+    .dd-app .view-bp .bpk-state{order:2}
+    .dd-app .view-bp .bpk-row .bp-switch{order:3}
+    .dd-app .view-bp .bpk-spark{order:4;flex:1 1 100%;width:100%;height:44px;min-width:0}
+    .dd-app .view-bp .bpk-row>.bpk-ro{order:4;flex:1 1 100%;min-width:0}
+    .dd-app .view-bp .bp-known-cols>*{min-width:0;max-width:100%}
+    .dd-app .view-bp .bpk-head{flex-wrap:wrap}
+}
+@media (prefers-reduced-motion:reduce){
+    .dd-app .view-bp .bp-spin{animation:none}
+    .dd-app .view-bp .bp-switch .tr,.dd-app .view-bp .bp-switch .tr::after{transition:none}
+}
