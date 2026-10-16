@@ -185,6 +185,21 @@ function devdbotp_activate()
     devdbotp_remove_old_hot_files();
 }
 
+/**
+ * Tables and defaults are created by the activation hook, which never runs when the plugin files are copied into
+ * place or updated outside the plugin screen (audit 2026-10-16: a site re-provisioned that way had the plugin active
+ * with no tables, a failing query on every request and no protection). On every admin load, when the stored version
+ * is not this version, run the same setup again: dbDelta and INSERT IGNORE change nothing on a healthy site, and the
+ * marker makes this one option read per admin page afterwards.
+ */
+add_action('admin_init', function () {
+    if (get_option('devdbotp_db_version', '') === DEVDBOTP_VERSION) {
+        return;
+    }
+    devdbotp_activate();
+    update_option('devdbotp_db_version', DEVDBOTP_VERSION, false);
+}, 0);
+
 /** Builds before 1.0.1 wrote an early-block mu-plugin and a Safe Mode flag file; remove them once (never through a link).
  *  Also on admin_init: an update through the plugin screen re-runs no activation hook, and the old file must not keep enforcing. */
 add_action('admin_init', function () {

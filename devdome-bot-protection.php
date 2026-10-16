@@ -3,7 +3,7 @@
 Plugin Name: DevDome Bot Protection
 Plugin URI: https://devdome.com/
 Description: See your real traffic and protect it — block bad bots and fake clicks while never breaking your Google rankings. Part of the DevDome suite.
-Version: 1.0.4
+Version: 1.0.5
 Requires at least: 6.2
 Requires PHP: 7.4
 Author: DevDome
@@ -23,7 +23,7 @@ if (file_exists(__DIR__ . '/wporg-build.php')) {
     require __DIR__ . '/wporg-build.php';
 }
 
-define('DEVDBOTP_VERSION', '1.0.4');
+define('DEVDBOTP_VERSION', '1.0.5');
 define('DEVDBOTP_DIR', plugin_dir_path(__FILE__));
 define('DEVDBOTP_URL', plugin_dir_url(__FILE__));
 

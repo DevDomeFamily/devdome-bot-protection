@@ -4,7 +4,7 @@ Tags: bot blocker, block ai crawlers, bad bots, crawler control, bot traffic
 Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.4
+Stable tag: 1.0.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -274,6 +274,16 @@ Chart.js 4.5.1 (MIT, source at https://github.com/chartjs/Chart.js, license in a
 
 == Changelog ==
 
+= 1.0.5 =
+
+* A dismissible note at the top of the settings page mentions the free DevDome Analytics plugin, with a button that opens the plugin installer (or the Analytics screen when it is already active). Dismiss hides it for good.
+* Shared DevDome library 1.7.13: uninstalling the last DevDome plugin also removes the note's dismissal, the update-repair records and the per-user "Report a bug" flag; the visitor-beacon flood guard keeps one short-lived record per address and clears its expired ones itself, and behind Cloudflare it counts per visitor instead of per Cloudflare address.
+* Shared DevDome library 1.7.12: a Cloudflare visitor address header is trusted only when the connection itself comes from a Cloudflare address, so a forged header from anywhere else is ignored.
+* Shared DevDome library 1.7.11: on a subdirectory multisite, a site mapped to its own domain is its own site and no longer shares the network's connection.
+* The plugin now creates its tables and default settings on the next admin page load whenever they are missing, for example when the plugin files were copied into place or updated outside the plugin screen. Before, such a site showed the plugin as active while every request hit a failing database query and nothing was protected.
+* The rate-limit and request-velocity counters keep one short-lived record per visitor address and clear their expired ones themselves. They used to write a new record per address every window, which sat in the database until the daily cleanup.
+* Deleting the plugin also removes the cached update-check answer it kept in the database.
+
 = 1.0.4 =
 
 * The personal data exporter and eraser match exact addresses only. A row shortened by Anonymize IPs covers several visitors and is no longer included in one person's export.
@@ -305,6 +315,9 @@ Chart.js 4.5.1 (MIT, source at https://github.com/chartjs/Chart.js, license in a
 * First public release.
 
 == Upgrade Notice ==
+
+= 1.0.5 =
+Self-repair of missing tables and a smaller database footprint for the rate counters. Blocking rules and the screen are unchanged.
 
 = 1.0.4 =
 Privacy export and erase match exact addresses only; error texts redact secrets and server paths. Protection rules are unaffected.

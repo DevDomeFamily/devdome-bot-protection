@@ -184,9 +184,9 @@ function devdbotp_rate_hit($ip, $cls, $limit, $window)
         return false;
     }
     $bucket = (int) floor(time() / $window);
-    $key = 'devdbotp_rl_' . $cls . '_' . substr(md5($ip), 0, 12) . '_' . $bucket;
 
     if (wp_using_ext_object_cache()) {
+        $key = 'devdbotp_rl_' . $cls . '_' . substr(md5($ip), 0, 12) . '_' . $bucket;
         if (wp_cache_get($key, 'devdbotp') === false) {
             wp_cache_add($key, 0, 'devdbotp', $window + 5);
         }
@@ -194,9 +194,37 @@ function devdbotp_rate_hit($ip, $cls, $limit, $window)
         return is_int($n) && $n > $limit;
     }
 
-    $n = (int) get_transient($key) + 1;
-    set_transient($key, $n, $window + 5);
-    return $n > $limit;
+    // One transient per address and class that resets every window, not one per window (audit 2026-10-16, the same
+    // change as the shared library's beacon guard): the old key carried the window number, so every address minted
+    // two fresh wp_options rows per window that sat expired until WordPress's daily sweep. A returning address
+    // reuses its row, and about one request in fifty removes the expired ones.
+    $key = 'devdbotp_rl_' . $cls . '_' . substr(md5($ip), 0, 12);
+    $b = get_transient($key);
+    if (!is_array($b) || !isset($b['b'], $b['n']) || (int) $b['b'] !== $bucket) {
+        $b = array('b' => $bucket, 'n' => 0);
+    }
+    $b['n'] = (int) $b['n'] + 1;
+    set_transient($key, $b, $window + 5);
+    if (1 === wp_rand(1, 50)) {
+        devdbotp_rate_sweep();
+    }
+    return $b['n'] > $limit;
+}
+
+/** Delete this guard's expired transient pairs (the value row and its timeout row), nothing else. */
+function devdbotp_rate_sweep()
+{
+    global $wpdb;
+    $like = $wpdb->esc_like('_transient_timeout_devdbotp_rl_') . '%';
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- scoped sweep of this plugin's own expired transients, the way core's delete_expired_transients() works.
+    $wpdb->query($wpdb->prepare(
+        "DELETE a, b FROM {$wpdb->options} a, {$wpdb->options} b
+         WHERE a.option_name LIKE %s
+           AND b.option_name = CONCAT('_transient_', SUBSTRING(a.option_name, 20))
+           AND a.option_value < %d",
+        $like,
+        time()
+    ));
 }
 
 /** Atomic counter increment on the settings table (row-level atomic in InnoDB). One name or a list: a list is ONE write. */

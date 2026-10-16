@@ -16,6 +16,7 @@ function devdbotp_uninstall_site()
         $wpdb->query("DROP TABLE IF EXISTS {$p}{$t}");
     }
 
+    delete_option('devdbotp_db_version'); // the setup marker (1.0.5)
     wp_unschedule_hook('devdbotp_refresh_feeds');
     wp_unschedule_hook('devdbotp_kb_sync');
     wp_unschedule_hook('devdbotp_kb_push_event');
@@ -71,6 +72,13 @@ foreach ($devdbotp_files as $devdbotp_f) {
 // DevDome plugin still installed, so the others keep working). Per site on a network: the
 // shared state is stored per site.
 require_once __DIR__ . '/lib/devdome-core/uninstall.php';
+// The suite updater caches its update manifest under a hashed key, per site and (on multisite) network wide.
+// Clear both spellings, or the cache outlives the plugin.
+$devdbotp_updater_cache = 'devdome_upd_' . md5('devdome-bot-protection');
+delete_transient($devdbotp_updater_cache);
+if (is_multisite()) {
+    delete_site_transient($devdbotp_updater_cache);
+}
 if (is_multisite()) {
     $devdbotp_offset = 0;
     do {
