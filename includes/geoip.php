@@ -145,7 +145,16 @@ function devdbotp_resolve_asn_info($ip)
     if (!devdbotp_outside_lookups_on()) {
         return $empty; // no address leaves the site while Outside Lookups is off
     }
-    $key = 'devdbotp_asninfo_' . substr(md5($ip), 0, 16);
+    // Security review 2026-10-19 (B6): an IPv6 address is cached on its /64 (one lookup per household, not per
+    // rotated address), and the site makes at most 60 live lookups a minute; past that the answer is "unknown".
+    $cache_ip = $ip;
+    if (false !== filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+        $packed = @inet_pton($ip);
+        if (false !== $packed && 16 === strlen($packed)) {
+            $cache_ip = inet_ntop(substr($packed, 0, 8) . str_repeat("\0", 8)) . '/64';
+        }
+    }
+    $key = 'devdbotp_asninfo_' . substr(md5($cache_ip), 0, 16);
     $cached = get_transient($key);
     if (is_array($cached)) {
         return $cached;
@@ -153,6 +162,17 @@ function devdbotp_resolve_asn_info($ip)
     if (get_transient('devdbotp_asn_down') !== false) {
         return $empty; // geo-resolve recently failed -> back off, don't pile up timeouts
     }
+    $minute = (int) floor(time() / 60);
+    $b = get_transient('devdbotp_asn_budget');
+    if (!is_array($b) || !isset($b['m'], $b['n']) || (int) $b['m'] !== $minute) {
+        $b = array('m' => $minute, 'n' => 0);
+    }
+    if ((int) $b['n'] >= 60) {
+        return $empty;
+    }
+    $b['n'] = (int) $b['n'] + 1;
+    set_transient('devdbotp_asn_budget', $b, 120);
+    $started = microtime(true);
     $r = wp_remote_post(DEVDBOTP_GEO_ENDPOINT, array(
         'timeout' => 2,
         'user-agent' => 'DevDome-Bot-Protection/' . DEVDBOTP_VERSION, // never WordPress's default agent: it names the site
@@ -162,6 +182,9 @@ function devdbotp_resolve_asn_info($ip)
     if (is_wp_error($r) || (int) wp_remote_retrieve_response_code($r) !== 200) {
         set_transient('devdbotp_asn_down', 1, 120);
         return $empty;
+    }
+    if ((microtime(true) - $started) > 1.5) {
+        set_transient('devdbotp_asn_down', 1, 60); // a slow answer trips the breaker like an error (B6), for a minute
     }
     $d = json_decode(wp_remote_retrieve_body($r), true);
     $row = (is_array($d) && isset($d['results'][$ip]) && is_array($d['results'][$ip])) ? $d['results'][$ip] : array();

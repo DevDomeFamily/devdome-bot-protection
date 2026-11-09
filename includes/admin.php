@@ -189,8 +189,9 @@ function devdbotp_inline_css()
 .dd-app .dd-btn:disabled, .dd-app .dd-btn-primary:disabled { opacity:.45; cursor:not-allowed; }
 .dd-app .dd-stat-sub { font-size:11px; color:#374151; margin-top:2px; }
 .dd-app .bp-stats-5 { grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin-top:18px; }
-.dd-app .bp-stats-5 .dd-stat { padding:14px 12px; }
-.dd-app .bp-stats-5 .dd-stat-num { font-size:1.5rem; }
+/* DESIGN.md 32: hero number tiles, ONE size in every plugin (Backup & Migration 1.0.1 = the reference, owner 5 Nov 2026). */
+.dd-app .dd-stats { gap:16px; } .dd-app .dd-stats .dd-stat { padding:14px 12px; } .dd-app .dd-stats .dd-stat-num { font-size:24px; line-height:24px; font-weight:700; }
+.dd-app .dd-stats .dd-stat-lbl { font-size:12px; line-height:16px; margin-top:6px; color:#374151; } .dd-app .dd-stats .dd-stat-sub { font-size:11px; line-height:1.5; margin-top:2px; color:#374151; }
 @media (max-width:1100px) { .dd-app .bp-stats-5 { grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); } }
 .dd-app .bp-check-list { margin:18px 0 0; padding:0; list-style:none; border-top:1px solid #f3f4f6; }
 .dd-app .bp-check-list li { display:flex; gap:12px; align-items:flex-start; padding:10px 0; border-bottom:1px solid #f3f4f6; font-size:13px; color:#111827; }
@@ -278,6 +279,18 @@ function devdbotp_inline_css()
 .dd-app .bp-types-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); }
 .dd-app .bp-types-grid .metric-label { padding-top:0; }
 @media (max-width:640px) { .dd-app .metric-card { padding:8px 10px; min-width:90px; } .dd-app .bp-types-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+/* 1.0.5: Bots By Type = doughnut + cards side by side; the Top Scraper card; the export links in the Recent Activity header. */
+.dd-app .bp-types-row { display:grid; grid-template-columns:300px minmax(0,1fr); gap:12px; align-items:start; }
+.dd-app .bp-donut-box { background:#fff; border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,.08); padding:12px; height:236px; position:relative; }
+.dd-app .bp-top-scraper .metric-value { font-size:16px; }
+.dd-app .bp-top-scraper .metric-value code { font-size:15px; font-weight:600; }
+.dd-app .bp-top-scraper .bp-meta { display:block; margin-top:4px; font-size:12px; color:#374151; }
+.dd-app .bp-export { margin-left:auto; display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12.5px; color:#374151; }
+.dd-app .bp-export a { color:#1967d2; text-decoration:none; font-weight:600; padding:3px 8px; border:1px solid #dadce0; border-radius:999px; background:#fff; line-height:1.3; }
+.dd-app .bp-export a:hover { border-color:#1967d2; background:#f8fbff; }
+.dd-app .bp-export .dashicons { font-size:16px; width:16px; height:16px; color:#5f6368; }
+@media (max-width:900px) { .dd-app .bp-types-row { grid-template-columns:minmax(0,1fr); } .dd-app .bp-donut-box { height:220px; } }
+.dd-app .bp-donut-box canvas { max-width:100%; }
 /* Pagination bar, Link Monitor 1:1. */
 .dd-app .bp-pagination { display:flex; flex-wrap:nowrap; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; border-top:1px solid #e5e7eb; }
 .dd-app .bp-pagination:empty { display:none; }
@@ -834,7 +847,7 @@ function devdbotp_config_keys()
 {
     return array('protection_level', 'mode', 'rule_actions', 'known_bots_blocked', 'anonymize_ips', 'timezone',
         'rate_limit_action', 'velocity_action', 'repeat_offender_action', 'repeat_offender_threshold', 'behavior_action',
-        'honeypot_enabled', 'honeypot_action', 'honeypot_asn_min_ips', 'fleet_action', 'custom_rules'); // Outside Lookups and Bot Radar are consent: never imported
+        'honeypot_enabled', 'honeypot_action', 'honeypot_asn_min_ips', 'fleet_action', 'custom_rules', 'trusted_proxies'); // Outside Lookups and Bot Radar are consent: never imported
 }
 
 /** The undo set of a running import: the earlier values and the rule ids added so far, stored and read back. */
@@ -1121,8 +1134,10 @@ function devdbotp_handle_settings()
         $ok = false !== devdbotp_set_site_state(array('timezone' => $tz)); // the dashboard learns it; false = refused (another request held the lock)
         unset($GLOBALS['devdbotp_cache']);
         $ok = $ok && !devdbotp_db_guard_failed() && (string) devdbotp_get_setting('timezone', '') === $tz;
-        // The two flags as ONE save after the setter: written, read back, put back on any failure.
-        $ok = $ok && devdbotp_settings_batch(array('anonymize_ips' => empty($_POST['bp_anonymize']) ? 0 : 1, 'outside_lookups' => empty($_POST['bp_outside_lookups']) ? 0 : 1));
+        // The two flags and the proxy ranges as ONE save after the setter: written, read back, put back on any failure.
+        $proxies_raw = isset($_POST['bp_trusted_proxies']) ? sanitize_textarea_field(wp_unslash($_POST['bp_trusted_proxies'])) : '';
+        $proxies_raw = substr($proxies_raw, 0, 4000);
+        $ok = $ok && devdbotp_settings_batch(array('anonymize_ips' => empty($_POST['bp_anonymize']) ? 0 : 1, 'outside_lookups' => empty($_POST['bp_outside_lookups']) ? 0 : 1, 'trusted_proxies' => $proxies_raw));
         if (!$ok) {
             devdbotp_db_guard_rebase();
             devdbotp_set_site_state(array('timezone' => $tz_before)); // nothing of this save stays
@@ -1636,13 +1651,36 @@ function devdbotp_render_activity_tab()
             <?php elseif (empty($cats)) : ?>
                 <div class="dd-card"><div class="dd-empty">No bots recorded in this period.</div></div>
             <?php else : ?>
-                <div class="metrics-grid bp-types-grid">
-                    <?php foreach ($cats as $cat => $n) : ?>
-                        <div class="metric-card">
-                            <h3 class="metric-label"><?php echo esc_html(isset($cat_label[$cat]) ? $cat_label[$cat] : $cat); ?></h3>
-                            <p class="metric-value" style="color:#be123c;"><?php echo esc_html(number_format_i18n($n)); ?></p>
-                        </div>
-                    <?php endforeach; ?>
+                <?php
+                // 1.0.5: the same counts as a doughnut (Chart.js, already on the page) and the busiest address of the
+                // range as a card. Colours cycle through the dashboard's series palette.
+                $palette = array('#be123c', '#ef4444', '#f59e0b', '#1967d2', '#4f46e5', '#059669', '#7c3aed', '#0891b2', '#6b7280', '#d97706');
+                $donut   = array('labels' => array(), 'counts' => array(), 'colors' => array());
+                $i = 0;
+                foreach ($cats as $cat => $n) {
+                    $donut['labels'][] = isset($cat_label[$cat]) ? $cat_label[$cat] : $cat;
+                    $donut['counts'][] = (int) $n;
+                    $donut['colors'][] = $palette[$i++ % count($palette)];
+                }
+                $top = devdbotp_top_scraper($since); // 1.0.6: one query, not the four of the Threats tab
+                ?>
+                <div class="bp-types-row">
+                    <div class="bp-donut-box"><canvas class="bp-donut" data-bp-donut="<?php echo esc_attr(wp_json_encode($donut)); ?>" aria-label="Bots by type"></canvas></div>
+                    <div class="metrics-grid bp-types-grid">
+                        <?php if ($top) : ?>
+                            <div class="metric-card bp-top-scraper">
+                                <h3 class="metric-label">Top Scraper</h3>
+                                <p class="metric-value" style="color:#be123c;"><code><?php echo esc_html($top->ip_text); ?></code></p>
+                                <span class="bp-meta"><?php echo esc_html(number_format_i18n((int) $top->hits)); ?> hits<?php if (!empty($top->last_seen)) : ?>, last <?php echo esc_html(get_date_from_gmt($top->last_seen, 'M j, H:i')); ?><?php endif; ?></span>
+                            </div>
+                        <?php endif; ?>
+                        <?php foreach ($cats as $cat => $n) : ?>
+                            <div class="metric-card">
+                                <h3 class="metric-label"><?php echo esc_html(isset($cat_label[$cat]) ? $cat_label[$cat] : $cat); ?></h3>
+                                <p class="metric-value" style="color:#be123c;"><?php echo esc_html(number_format_i18n($n)); ?></p>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
             <?php endif; ?>
         </section>
@@ -1681,6 +1719,14 @@ function devdbotp_render_activity_tab()
             <div class="dd-sec-head">
                 <span class="dashicons dashicons-list-view dd-ico"></span>
                 <h2 class="dd-h2">Recent Activity</h2>
+                <span class="bp-export" aria-label="Export the blocked requests as CSV">
+                    <span class="dashicons dashicons-download" aria-hidden="true"></span>
+                    Export blocked requests:
+                    <a href="<?php echo esc_url(devdbotp_export_url(7)); ?>" title="CSV of the blocked requests, last 7 days">7 days</a>
+                    <a href="<?php echo esc_url(devdbotp_export_url(14)); ?>" title="CSV of the blocked requests, last 14 days">14 days</a>
+                    <a href="<?php echo esc_url(devdbotp_export_url(30)); ?>" title="CSV of the blocked requests, last 30 days">30 days</a>
+                    <a href="<?php echo esc_url(devdbotp_export_url(0)); ?>" title="CSV of every kept blocked request">all</a>
+                </span>
             </div>
             <?php if (null === $events) : ?>
                 <div class="dd-card"><div class="dd-empty">The recent events could not be read from the database. Reload the page; if it stays, check the database.</div></div>
@@ -2140,6 +2186,16 @@ function devdbotp_render_rules_tab()
 /** Aggregate threat intel from logged events over $days (verified bots excluded). */
 function devdbotp_threats($days = 7, $since = null)
 {
+    static $memo = array();
+    $k = $days . '|' . (string) $since;
+    if (!array_key_exists($k, $memo)) {
+        $memo[$k] = devdbotp_threats_query($days, $since);
+    }
+    return $memo[$k];
+}
+
+function devdbotp_threats_query($days = 7, $since = null)
+{
     global $wpdb;
     $t = $wpdb->prefix . 'devdbotp_events';
     $since = $since !== null ? $since : gmdate('Y-m-d H:i:s', time() - $days * DAY_IN_SECONDS);
@@ -2187,6 +2243,22 @@ function devdbotp_threats($days = 7, $since = null)
         return null; // could not be read: the Threats tab says so, never "no threats"
     }
     return compact('summary', 'ips', 'paths', 'uas');
+}
+
+/** The Top Scraper card on Activity: the busiest non-verified address of the period, one bounded query. null = none or the read failed. */
+function devdbotp_top_scraper($since)
+{
+    global $wpdb;
+    $t = $wpdb->prefix . 'devdbotp_events';
+    devdbotp_db_reset_error();
+    // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- internal table name; static clause, no user input; $since prepared.
+    $row = $wpdb->get_row($wpdb->prepare(
+        "SELECT ip_text, COUNT(*) hits, MAX(created_at) last_seen FROM $t
+         WHERE created_at >= %s AND bot_category NOT IN ('verified_bot','human') AND ip_text <> ''
+         GROUP BY ip_text ORDER BY hits DESC LIMIT 1",
+        $since
+    ));
+    return ($row && !devdbotp_db_failed()) ? $row : null;
 }
 
 /** Bots By Country on Activity: bot hits per country code for the period, every country (the list pages by 20). Verified crawlers left out, as in the technical lists. */
@@ -2325,6 +2397,12 @@ function devdbotp_render_settings_tab()
     $anonymize = (int) devdbotp_get_setting('anonymize_ips', 0);
     $timezone  = (string) devdbotp_get_setting('timezone', '');
     $outside_lookups = (int) devdbotp_get_setting('outside_lookups', 0);
+    $trusted_proxies = (string) devdbotp_get_setting('trusted_proxies', '');
+    $proxy_invalid   = function_exists('devdcorev1_invalid_proxies') ? devdcorev1_invalid_proxies($trusted_proxies) : array();
+    $proxy_ranges    = function_exists('devdcorev1_trusted_proxies') ? devdcorev1_trusted_proxies($trusted_proxies) : array();
+    $proxy_peer      = isset($_SERVER['REMOTE_ADDR']) ? trim(sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR']))) : '';
+    $proxy_active    = $proxy_ranges && function_exists('devdcorev1_is_trusted_proxy') && devdcorev1_is_trusted_proxy($proxy_peer, $proxy_ranges);
+    $behind_cf       = function_exists('devdbotp_behind_cloudflare') && devdbotp_behind_cloudflare();
 
 
     $cfg = array();
@@ -2483,6 +2561,20 @@ function devdbotp_render_settings_tab()
                             <td class="dd-td">
                                 <label class="dd-opt"><input type="checkbox" name="bp_outside_lookups" value="1" class="dd-check" <?php checked($outside_lookups, 1); ?>> Download the bot lists and look up attacker networks</label>
                                 <p class="dd-hint">Off by default: no list is downloaded and no address is sent to an outside service (Bot Radar on the Rules tab has its own switch; the good-bot check still asks this server's own DNS resolver). On: the bot lists are downloaded daily from DevDome, Google, Bing, Apple and OpenAI, and public IP addresses that hit a trap or match a flagged network are sent to the DevDome geo service to find their country and network. <?php devdbotp_tip('Without the lists, detection relies on the built-in rules only. The country and network lookups can include addresses that are not yet classified as bots. The DevDome account connection is separate and has its own consent.'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="dd-th">Trusted Proxies</th>
+                            <td class="dd-td">
+                                <textarea name="bp_trusted_proxies" class="dd-textarea" rows="3" style="width:100%;max-width:420px;" placeholder="203.0.113.0/24" aria-describedby="bp-proxy-hint"><?php echo esc_textarea($trusted_proxies); ?></textarea>
+                                <p class="dd-hint" id="bp-proxy-hint">Only for a site behind a reverse proxy or CDN other than Cloudflare (nginx in front of Apache, Varnish, CloudFront, Fastly, Bunny). One address or range per line. Behind them the visitor's address is read from X-Forwarded-For, walked from the proxy inward; the proxy's own address is never flagged, limited or blocked. Cloudflare needs no entry. <?php devdbotp_tip('Without this, every visitor behind such a proxy shares one address: one rate limit hits everyone, and a public proxy address could be pinned as the admin address, which switches blocking off for all. Leave it empty when visitors reach this server directly.'); ?></p>
+                                <?php if ($proxy_invalid) : ?>
+                                    <p class="dd-hint" style="color:#b45309;">Not an address or range, ignored: <?php echo esc_html(implode(', ', array_slice($proxy_invalid, 0, 5))); ?></p>
+                                <?php elseif ($behind_cf) : ?>
+                                    <p class="dd-hint">This request came through Cloudflare, so the visitor address is already read from Cloudflare's header.</p>
+                                <?php elseif ($proxy_ranges) : ?>
+                                    <p class="dd-hint"><?php echo $proxy_active ? 'This request arrived through a trusted proxy, so X-Forwarded-For is being used.' : 'This request did not arrive through a listed proxy, so X-Forwarded-For was ignored for it. If all traffic should pass through the proxy, this server is reachable directly.'; ?></p>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     </table>

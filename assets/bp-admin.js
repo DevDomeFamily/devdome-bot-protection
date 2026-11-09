@@ -298,6 +298,7 @@
         });
         root.querySelectorAll('table[data-bp-paged]').forEach(pagedList);
         root.querySelectorAll('[data-bp-chart]').forEach(activityChart);
+        root.querySelectorAll('[data-bp-donut]').forEach(donutChart);
         // Country codes -> English names, as the dashboard does it (Intl.DisplayNames); the code stays when the browser has no names.
         try {
             var names = (typeof Intl !== 'undefined' && Intl.DisplayNames) ? new Intl.DisplayNames(['en'], { type: 'region' }) : null;
@@ -491,6 +492,27 @@
             chart = new window.Chart(canvas.getContext('2d'), { type: 'line', data: { labels: data.labels, datasets: [dataset(sel[0], 1), dataset(sel[1], 0)] }, options: options, plugins: [crosshair] });
         }
         paintCards();
+    }
+
+    // 1.0.5: Bots By Type as a doughnut (same counts as the cards next to it).
+    function donutChart(canvas) {
+        if (canvas.getAttribute('data-wired') || typeof window.Chart === 'undefined') { return; }
+        canvas.setAttribute('data-wired', '1');
+        var data; try { data = JSON.parse(canvas.getAttribute('data-bp-donut') || '{}'); } catch (e) { return; }
+        if (!data.labels || !data.labels.length) { return; }
+        var phone = window.matchMedia('(max-width: 640px)').matches;
+        new window.Chart(canvas.getContext('2d'), {
+            type: 'doughnut',
+            data: { labels: data.labels, datasets: [{ data: data.counts, backgroundColor: data.colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 4 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '62%',
+                animation: phone ? false : undefined,
+                plugins: {
+                    legend: { position: phone ? 'bottom' : 'right', labels: { boxWidth: 10, boxHeight: 10, font: { size: 12 }, color: '#3c4043', padding: 8 } },
+                    tooltip: { callbacks: { label: function (c) { var tot = c.dataset.data.reduce(function (a, b) { return a + b; }, 0); return ' ' + c.label + ': ' + c.parsed + (tot ? ' (' + Math.round(100 * c.parsed / tot) + '%)' : ''); } } }
+                }
+            }
+        });
     }
 
     /* ------------------------------- misc -------------------------------- */

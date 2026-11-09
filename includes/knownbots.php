@@ -43,6 +43,7 @@ function devdbotp_kb_catalog()
             array('id' => 'amazonbot',    'name' => 'Amazonbot',             'ds' => 'Amazon AI crawler', 'dsLong' => 'Amazonbot, Amazon crawler incl. model training; Alexa search and user fetches have their own bots below', 'tokens' => array('amazonbot'), 'robots' => array('Amazonbot')),
             array('id' => 'amznsearch',   'name' => 'Amazon search',         'ds' => 'Alexa and Amazon search indexing', 'dsLong' => 'Amzn-SearchBot, indexes for Alexa and Amazon search answers, not training', 'tokens' => array('amzn-searchbot'), 'robots' => array('Amzn-SearchBot'), 'rec' => 'allow'),
             array('id' => 'amznuser',     'name' => 'Amazon user requests',  'ds' => 'Alexa user page fetcher', 'dsLong' => 'Amzn-User, fetches pages a real person asked Alexa for', 'tokens' => array('amzn-user'), 'robots' => array('Amzn-User'), 'rec' => 'allow'),
+            array('id' => 'cohere',       'name' => 'Cohere',                'ds' => 'cohere-ai crawler', 'dsLong' => 'cohere-ai and cohere-training-data-crawler, model training crawlers', 'tokens' => array('cohere-ai', 'cohere-training-data-crawler'), 'robots' => array('cohere-ai', 'cohere-training-data-crawler')),
             array('id' => 'diffbot',      'name' => 'Diffbot',               'ds' => 'Diffbot search crawler', 'dsLong' => 'Diffbot, crawls for its search and citation products, not model training', 'tokens' => array('diffbot'), 'none' => array('diffbot-user'), 'robots' => array('Diffbot'), 'rec' => 'allow'),
             array('id' => 'diffbotuser',  'name' => 'Diffbot user requests', 'ds' => 'Diffbot user page fetcher', 'dsLong' => 'Diffbot-User, fetches pages a real person asked for', 'tokens' => array('diffbot-user'), 'robots' => array('Diffbot-User'), 'rec' => 'allow'),
         )),
@@ -1155,7 +1156,11 @@ function devdbotp_render_knownbots_tab()
                                 $allowed = !isset($blocked[$b['id']]);
                                 $long    = isset($b['dsLong']) ? $b['dsLong'] : $b['ds']; ?>
                                 <label class="bpk-row<?php echo $allowed ? '' : ' off'; ?>">
-                                    <div class="bpk-info"><div class="bpk-nm"><?php echo esc_html($b['name']); ?></div><div class="bpk-ds" title="<?php echo esc_attr($long); ?>"><?php echo esc_html($b['ds']); ?></div></div>
+                                    <div class="bpk-info"><div class="bpk-nm"><?php echo esc_html($b['name']); ?></div><div class="bpk-ds" title="<?php echo esc_attr($long); ?>"><?php echo esc_html($b['ds']); ?></div><?php
+                                        // 25 Oct 2026 (owner, competitor gap): the exact user-agent product tokens this switch covers, so the
+                                        // owner sees what "OpenAI training" matches. robots-only entries name their robots.txt token instead.
+                                        $ua_list = isset($b['robots']) && is_array($b['robots']) ? implode(', ', array_map('strval', $b['robots'])) : '';
+                                        if ('' !== $ua_list) : ?><div class="bpk-ua" title="<?php echo esc_attr(!empty($b['robots_only']) ? 'The robots.txt token this switch writes' : 'The user-agent names this switch matches'); ?>"><?php echo esc_html((!empty($b['robots_only']) ? 'robots.txt token: ' : 'User agent: ') . $ua_list); ?></div><?php endif; ?></div>
                                     <?php if (!empty($b['robots_only'])) : ?>
                                         <span class="bpk-ds bpk-ro" title="A robots.txt data-use control, not a visiting crawler, it has no request hits">robots.txt policy only</span>
                                     <?php else : ?>

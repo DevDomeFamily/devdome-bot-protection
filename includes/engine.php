@@ -25,15 +25,21 @@ function devdbotp_run()
         $cur = devdbotp_client_ip();
         if ($cur !== ''
             && filter_var($cur, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)
+            && !devdbotp_is_trusted_proxy($cur) // a proxy address is every visitor: pinning it would switch enforcement off for all
             && devdbotp_get_setting('admin_ip_pinned', '') !== $cur) {
             devdbotp_update_setting('admin_ip_pinned', $cur);
         }
         return; // never police a logged-in admin
     }
 
-    // Admin screens: trusted, skip (front-end + wp-login are where bots hit).
+    // Admin screens: trusted, skip (front-end + wp-login are where bots hit). Security review 2026-10-19:
+    // admin-ajax.php and admin-post.php also count as "admin" for a visitor who is NOT logged in, and bots
+    // hammer both; those two stay inspected unless the request comes from a logged-in user.
     if (is_admin()) {
-        return;
+        $pn = isset($GLOBALS['pagenow']) ? (string) $GLOBALS['pagenow'] : '';
+        if (is_user_logged_in() || !in_array($pn, array('admin-ajax.php', 'admin-post.php'), true)) {
+            return;
+        }
     }
 
     $level = devdbotp_get_setting('protection_level', 'recommended');
@@ -45,14 +51,29 @@ function devdbotp_run()
     }
 
     $ip = devdbotp_client_ip();
+    if ($ip !== '' && devdbotp_is_trusted_proxy($ip)) {
+        return; // the chain named no client, so the address is the owner's own proxy = every visitor at once: never flagged, limited or blocked
+    }
     $ua = isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'])) : '';
     $path = isset($_SERVER['REQUEST_URI']) ? (string) strtok(sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])), '?') : '/'; // the path only: a reset token or key in the query string is never stored
+    // Security review 2026-10-19: rules, rate limits and the endpoint classes match the DECODED path, so
+    // /wp-%6Cogin.php is /wp-login.php; a REST call made as /?rest_route=/wp/v2/users (the query form the
+    // path-only read dropped) is matched and counted as /wp-json/wp/v2/users. Only the route is kept.
+    $path = rawurldecode($path);
+    if (isset($_GET['rest_route']) && is_string($_GET['rest_route']) && ($path === '/' || $path === '/index.php')) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only routing, nothing acted on
+        $rr = rawurldecode(sanitize_text_field(wp_unslash($_GET['rest_route']))); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        if ($rr !== '' && $rr[0] === '/') { $path = '/wp-json' . $rr; }
+    }
     $method = isset($_SERVER['REQUEST_METHOD']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_METHOD'])) : 'GET';
     $cf  = devdbotp_cf_signals();
     $asn = $cf['asn'];
 
+    // Security review 2026-10-19 (B1, custom rules): a path rule also sees the decoded query string ("/?rest_route=/wp/v2/users",
+    // "/wp-login.php?action=lostpassword"), so a rule on rest_route or a query marker can match. The query is matched only, never stored.
+    $query_raw = isset($_SERVER['QUERY_STRING']) ? rawurldecode(sanitize_text_field(wp_unslash($_SERVER['QUERY_STRING']))) : '';
+    $path_query = $query_raw !== '' ? $path . '?' . $query_raw : $path;
     $result = devdbotp_evaluate(array(
-        'ua' => $ua, 'ip' => $ip, 'path' => $path, 'method' => $method, 'asn' => $asn,
+        'ua' => $ua, 'ip' => $ip, 'path' => $path, 'path_query' => $path_query, 'method' => $method, 'asn' => $asn,
         'country' => isset($cf['country']) ? $cf['country'] : '',
         'custom_rules' => function_exists('devdbotp_custom_rules') ? devdbotp_custom_rules() : array(),
         'ip_repeat_offender' => function_exists('devdbotp_ip_is_repeat_offender') ? devdbotp_ip_is_repeat_offender($ip) : false,
@@ -284,6 +305,23 @@ function devdbotp_prune()
         "DELETE FROM " . $wpdb->prefix . "devdbotp_events WHERE created_at < %s",
         gmdate('Y-m-d H:i:s', time() - $retention * DAY_IN_SECONDS)
     ));
+    // Security review 2026-10-19: a row cap as well as the age cut. Unauthenticated traffic writes both
+    // tables, so a flood inside the 90-day window could grow them without limit; the newest rows are kept.
+    // events: by id (auto-increment); sessions: by last_seen (keyed by session_id, no id column).
+    foreach (array('devdbotp_events' => array(200000, 'id'), 'devdbotp_sessions' => array(50000, 'last_seen')) as $tbl => $cap) {
+        list($keep, $col) = $cap;
+        $t = $wpdb->prefix . $tbl;
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- internal table name
+        $n = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$t}");
+        if ($n > $keep) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- internal table and column names; the offset is an integer
+            $floor = $wpdb->get_var($wpdb->prepare("SELECT {$col} FROM {$t} ORDER BY {$col} DESC LIMIT 1 OFFSET %d", $keep - 1));
+            if ($floor !== null && $floor !== '') {
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- internal table and column names
+                $wpdb->query($wpdb->prepare("DELETE FROM {$t} WHERE {$col} < %s", $floor));
+            }
+        }
+    }
 }
 add_action('devdbotp_refresh_feeds', 'devdbotp_prune');
 

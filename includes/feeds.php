@@ -232,6 +232,17 @@ function devdbotp_behind_cloudflare()
 
 function devdbotp_client_ip()
 {
+    // Security review 2026-10-19 (B4): behind a CDN or reverse proxy that is not Cloudflare every visitor
+    // used to share the proxy's address, so one rate limit hit everyone and a public proxy address could
+    // be pinned as "the admin" and switch enforcement off for all. The owner names the proxy ranges on
+    // the Settings tab; the shared library then walks X-Forwarded-For from the right (never the leftmost
+    // entry the client typed), only when the TCP peer really is one of those ranges.
+    if (!devdbotp_behind_cloudflare() && function_exists('devdcorev1_client_ip')) {
+        $raw = (string) devdbotp_get_setting('trusted_proxies', '');
+        if ($raw !== '') {
+            return devdcorev1_client_ip($raw, false);
+        }
+    }
     $headers = devdbotp_behind_cloudflare() ? array('HTTP_CF_CONNECTING_IP', 'REMOTE_ADDR') : array('REMOTE_ADDR');
     foreach ($headers as $h) {
         if (!empty($_SERVER[$h])) {
@@ -242,6 +253,16 @@ function devdbotp_client_ip()
         }
     }
     return '';
+}
+
+/** True when the address is one of the owner's trusted proxies: never pinned, flagged, limited or blocked. */
+function devdbotp_is_trusted_proxy($ip)
+{
+    if ($ip === '' || !function_exists('devdcorev1_trusted_proxies')) {
+        return false;
+    }
+    $list = devdcorev1_trusted_proxies((string) devdbotp_get_setting('trusted_proxies', ''));
+    return $list && devdcorev1_is_trusted_proxy($ip, $list);
 }
 
 /**
@@ -345,7 +366,26 @@ function devdbotp_ua_is_verified_bot($ua, $ip = '', $feeds = null)
     if (devdbotp_ip_in_verified_ranges($ip, $feeds)) {
         return true; // proven by a published verified-bot range — zero DNS
     }
+    // Security review 2026-10-19 (B5): Google, Bing, Apple and OpenAI publish their ranges; an address outside
+    // them that still claims one of those agents is a fake, no DNS needed. The reverse-DNS fallback is only for
+    // operators without a published list (Yandex, DuckDuckGo, Yahoo).
+    if (preg_match('/googlebot|bingbot|msnbot|applebot|gptbot|oai-searchbot|chatgpt-user/i', (string) $ua)) {
+        return false;
+    }
     return devdbotp_fcrdns_good_bot($ip); // cached reverse-DNS fallback (Yandex/DuckDuckGo/etc.)
+}
+
+/** The network an address is cached under for a NEGATIVE reverse-DNS answer: /24 for IPv4, /64 for IPv6 (B5). */
+function devdbotp_fcrdns_net_key($ip)
+{
+    $packed = @inet_pton((string) $ip);
+    if (false === $packed) {
+        return (string) $ip;
+    }
+    if (16 === strlen($packed)) {
+        return inet_ntop(substr($packed, 0, 8) . str_repeat("\0", 8)) . '/64';
+    }
+    return inet_ntop(substr($packed, 0, 3) . "\0") . '/24';
 }
 
 /** Good-bot reverse-DNS domain suffixes for the FCrDNS fallback. */
@@ -368,8 +408,28 @@ function devdbotp_fcrdns_good_bot($ip)
     if ($cached !== false) {
         return $cached === '1';
     }
+    // B5: a network that already failed is not asked again per address (one map row per /24 or /64), and the
+    // site makes at most 30 live DNS round trips a minute; past the budget the claim is simply unverified.
+    $net_key = 'devdbotp_fcrneg_' . md5(devdbotp_fcrdns_net_key($ip));
+    if (get_transient($net_key) !== false) {
+        return false;
+    }
+    $minute = (int) floor(time() / 60);
+    $b = get_transient('devdbotp_fcr_budget');
+    if (!is_array($b) || !isset($b['m'], $b['n']) || (int) $b['m'] !== $minute) {
+        $b = array('m' => $minute, 'n' => 0);
+    }
+    if ((int) $b['n'] >= 30) {
+        return false;
+    }
+    $b['n'] = (int) $b['n'] + 1;
+    set_transient('devdbotp_fcr_budget', $b, 120);
     $ok = devdbotp_fcrdns_check($ip) ? '1' : '0';
-    set_transient($key, $ok, $ok === '1' ? WEEK_IN_SECONDS : HOUR_IN_SECONDS);
+    if ($ok === '1') {
+        set_transient($key, '1', WEEK_IN_SECONDS);
+    } else {
+        set_transient($net_key, '0', HOUR_IN_SECONDS);
+    }
     return $ok === '1';
 }
 

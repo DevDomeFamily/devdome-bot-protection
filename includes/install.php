@@ -7,8 +7,12 @@
 
 defined('ABSPATH') || exit;
 
-function devdbotp_activate()
+function devdbotp_activate($network_wide = false)
 {
+    // First activation only: the next admin page load opens this plugin's screen (never network-wide, never WP-CLI).
+    if (empty($network_wide) && !(defined('WP_CLI') && WP_CLI)) {
+        set_transient('devdbotp_activation_redirect', 1, 60);
+    }
     global $wpdb;
     $charset_collate = $wpdb->get_charset_collate();
     $p = $wpdb->prefix . 'devdbotp_';
@@ -160,6 +164,7 @@ function devdbotp_activate()
         'stat_bots_seen'        => 0,
         'stat_humans_seen'      => 0,
         'admin_ip_pinned'       => '',
+        'trusted_proxies'       => '',            // owner-named reverse proxy / CDN ranges (CIDR, one per line); X-Forwarded-For is read only behind them
     );
     $table = $wpdb->prefix . 'devdbotp_settings';
     foreach ($defaults as $name => $value) {

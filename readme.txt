@@ -4,7 +4,7 @@ Tags: bot blocker, block ai crawlers, bad bots, crawler control, bot traffic
 Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.5
+Stable tag: 1.0.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,7 +32,7 @@ Known Bots robots.txt directives, the enabled honeypot and browser session colle
 * Activity: review caught requests, bot and people totals, recent events, countries and technical details. Add an Allow This Visitor exception when IP anonymization is off.
 * Rules: set actions for built-in detection, rate limits, repeat offenders, automated browsers, the honeypot and Bot Radar. Add custom rules for user agents, paths, IP addresses, ranges, countries or network numbers. Action changes save on click.
 * Known Bots: control AI crawlers, search engines, SEO crawlers, social previews and uptime monitors. Each switch saves immediately. OpenAI and Anthropic training, search and user-request agents have separate controls.
-* Settings: manage privacy, time zone, feeds, account connection, import/export, Clear Statistics and Cloudflare rules.
+* Settings: manage privacy, time zone, trusted proxies, feeds, account connection, import/export, Clear Statistics and Cloudflare rules.
 
 Use Recommended on Rules and Known Bots asks for confirmation. On Rules, it restores recommended actions while preserving thresholds and feature switches.
 
@@ -272,7 +272,32 @@ Pause lasts 30 minutes. Event output masks IP addresses and omits query strings;
 
 Chart.js 4.5.1 (MIT, source at https://github.com/chartjs/Chart.js, license in assets/LICENSE-chartjs.txt) draws the Activity chart. The admin stylesheet is compiled from Tailwind CSS 3.4 utility classes (MIT). The country flag images in assets/flags are the 20 px set from Flagpedia (https://flagpedia.net, public domain). The Roboto font files in assets/fonts are from Google Fonts (Apache License 2.0).
 
+== Source code ==
+
+All of this plugin's PHP and JavaScript ships unminified and human-readable.
+
+One file is generated: `assets/devdome-tools-tw.css`, the admin screen's utility stylesheet (`assets/admin.css` is hand-written and ships as-is). It is a Tailwind CSS v3 utility bundle built from `src/tw.css` and `tailwind.config.cjs` with:
+
+`npx tailwindcss -c tailwind.config.cjs -i src/tw.css -o assets/devdome-tools-tw.css --minify`
+
+Those two build inputs are not included in the distributed package. Ask for them at https://devdome.com/contact and we will send them.
+
 == Changelog ==
+
+= 1.0.6 =
+* Shared DevDome library 1.7.17: the connect beacon's flood guard counts an IPv6 visitor per /64 network, and the one-click install of another DevDome plugin verifies the downloaded package against the published checksum before installing.
+* Hardening (security review): a crawler claiming Google, Bing, Apple or OpenAI is verified against their published address lists only (no DNS); reverse-DNS checks for the others are limited to 30 a minute and a failed network is remembered per /24 or /64; ASN lookups are cached per IPv6 /64 and limited to 60 a minute; a network is flagged from the honeypot only after hits on two different days, one logged hit per address per 10 minutes; Bot Radar reports from a connected site carry the site token; the CSV export guard covers leading spaces, byte-order marks and the pipe character; the recent-events ability names the visitor-written fields as untrusted and caps the user agent at 200 characters.
+* Every Known Bots switch names the exact user-agent tokens it matches (for example GPTBot, or ClaudeBot, Claude-Web, anthropic-ai), and a robots.txt-only entry names its token, so you can see what each switch covers before you turn it off.
+* The first activation opens the plugin screen once: the DevDome Account card when the site is not connected yet, the Overview when it is. Bulk activations never redirect.
+* Trusted Proxies on the Settings tab: a site behind a reverse proxy or CDN other than Cloudflare names its proxy ranges, and the visitor address is then read from X-Forwarded-For walked from the proxy inward. Without an entry nothing changes. The proxy's own address is never pinned as the admin address, flagged, rate limited or blocked.
+* Custom path rules also see the decoded query string, so a rule on rest_route or a query marker can match.
+* Requests to admin-ajax.php and admin-post.php from a visitor who is not logged in are inspected like other front-end requests. Stored events are capped at 200,000 rows and sessions at 50,000, the oldest dropped first.
+* The add-rule and update-settings abilities are marked as changes that cannot be undone, so an AI assistant connected through MCP asks before running them.
+* Shared DevDome library 1.7.16: the connect request to devdome.com stays valid for 60 minutes instead of 20, and the DevDome Tools page asks the server again while a request this site started is still open, so a connection authorized in a tab that never came back still completes; the Tools page notes when DevDome Analytics is not installed; the Analytics note styles are registered through WordPress instead of a style block in the page; one shared helper reads the visitor address behind a trusted proxy; the AI Assistant is listed in the plugin catalog. After connecting, the screen you land on says which account the site is connected to and the one next step.
+
+* The admin bar shows "Blocked today" (or "Would block today" while the plugin only records) with a dropdown of quick links to Overview, Activity, Rules and Settings and the count over every kept record. The counter reads only today's rows and caches the all-kept count separately, so the bar never scans the whole log.
+* The Activity tab can export the blocked requests as a CSV file for the last 7, 14 or 30 days or everything kept; it opens in Excel as UTF-8 and spreadsheet formulas in request data are neutralised. The file streams in chunks and ends with a row naming the row count, so a cut-off export is visible instead of silent.
+* Bots By Type is also drawn as a doughnut next to its cards, and a Top Scraper card names the busiest address of the chosen range with one query.
 
 = 1.0.5 =
 
@@ -315,6 +340,9 @@ Chart.js 4.5.1 (MIT, source at https://github.com/chartjs/Chart.js, license in a
 * First public release.
 
 == Upgrade Notice ==
+
+= 1.0.6 =
+Admin-bar blocked counter, CSV export of blocked requests, Bots By Type doughnut and a Top Scraper card. Blocking rules are unchanged.
 
 = 1.0.5 =
 Self-repair of missing tables and a smaller database footprint for the rate counters. Blocking rules and the screen are unchanged.

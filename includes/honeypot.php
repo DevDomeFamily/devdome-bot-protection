@@ -154,8 +154,9 @@ function devdbotp_honeypot_catch()
         exit;
     }
 
-    // Public IPs only — never let a shared/NAT/private IP become a flagged "offender".
-    if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+    // Public IPs only — never let a shared/NAT/private IP become a flagged "offender"; the owner's own proxy neither.
+    if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)
+        && !(function_exists('devdbotp_is_trusted_proxy') && devdbotp_is_trusted_proxy($ip))) {
         $cf = function_exists('devdbotp_cf_signals') ? devdbotp_cf_signals() : array('asn' => 0, 'country' => '');
         // A trap hit is always worth flagging — resolve the ASN directly if no header gave one (rare,
         // so the lookup cost is negligible; this is how the FIRST discovery seeds the flagged list).
@@ -174,6 +175,13 @@ function devdbotp_honeypot_catch()
 /** Log one trap hit as a `honeypot` event + reputation, then maybe rebuild the flagged-ASN map. */
 function devdbotp_honeypot_record($ip, $ua, $path, $cf)
 {
+    // Security review 2026-10-19 (B7): one logged trap hit per address per 10 minutes; a client hammering the
+    // trap cannot fill the events table or force the ASN rebuild from one address.
+    $seen_key = 'devdbotp_hp_seen_' . md5((string) $ip);
+    if (get_transient($seen_key) !== false) {
+        return;
+    }
+    set_transient($seen_key, 1, 10 * MINUTE_IN_SECONDS);
     $result = array(
         'labels'   => array('honeypot'),
         'category' => 'honeypot',
@@ -204,7 +212,8 @@ function devdbotp_maybe_rebuild_honeypot_asns($force = false)
 }
 
 /**
- * Flag an ASN only when >= K distinct IPs from it have hit the trap (the proxy signature
+ * Flag an ASN only when >= K distinct IPs from it have hit the trap on at least two different days (B7: a burst
+ * from one network on one afternoon is not a proxy signature yet;
  * AND the safety gate — a stray real user is 1 IP, never reaches K). Excludes verified-bot
  * traffic and the consumer-ISP safelist. Reads the events table's honeypot rows.
  */
@@ -219,10 +228,10 @@ function devdbotp_rebuild_honeypot_asns()
         devdbotp_db_reset_error();
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- internal table name; values prepared.
         $page = $wpdb->get_results($wpdb->prepare(
-            "SELECT asn, COUNT(DISTINCT ip_text) AS ips, COUNT(*) AS hits
+            "SELECT asn, COUNT(DISTINCT ip_text) AS ips, COUNT(*) AS hits, COUNT(DISTINCT DATE(created_at)) AS days
                FROM $t
               WHERE bot_category = 'honeypot' AND asn IS NOT NULL AND asn > 0 AND ip_text <> ''
-              GROUP BY asn HAVING ips >= %d ORDER BY ips DESC, asn ASC LIMIT 1000 OFFSET %d",
+              GROUP BY asn HAVING ips >= %d AND days >= 2 ORDER BY ips DESC, asn ASC LIMIT 1000 OFFSET %d",
             $k,
             $offset
         ));

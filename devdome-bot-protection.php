@@ -3,7 +3,7 @@
 Plugin Name: DevDome Bot Protection
 Plugin URI: https://devdome.com/
 Description: See your real traffic and protect it — block bad bots and fake clicks while never breaking your Google rankings. Part of the DevDome suite.
-Version: 1.0.5
+Version: 1.0.6
 Requires at least: 6.2
 Requires PHP: 7.4
 Author: DevDome
@@ -23,7 +23,7 @@ if (file_exists(__DIR__ . '/wporg-build.php')) {
     require __DIR__ . '/wporg-build.php';
 }
 
-define('DEVDBOTP_VERSION', '1.0.5');
+define('DEVDBOTP_VERSION', '1.0.6');
 define('DEVDBOTP_DIR', plugin_dir_path(__FILE__));
 define('DEVDBOTP_URL', plugin_dir_url(__FILE__));
 
@@ -59,6 +59,7 @@ require_once DEVDBOTP_DIR . 'includes/site-health.php';
 require_once DEVDBOTP_DIR . 'includes/abilities.php';
 require_once DEVDBOTP_DIR . 'includes/privacy.php';
 require_once DEVDBOTP_DIR . 'includes/multisite.php';
+require_once DEVDBOTP_DIR . 'includes/adminbar.php'; // 1.0.5: admin-bar counter + CSV export
 
 if (is_admin()) {
     require_once DEVDBOTP_DIR . 'includes/admin.php';
@@ -166,6 +167,21 @@ add_filter('devdcorev1_suite_report_sections', function ($s) {
     return $s;
 });
 
+// First activation (install.php sets the transient): open this plugin's screen once, the DevDome Account card
+// when the site is not linked yet. Bulk activation, AJAX, cron and WP-CLI never redirect.
+add_action('admin_init', function () {
+    if (!get_transient('devdbotp_activation_redirect')) {
+        return;
+    }
+    delete_transient('devdbotp_activation_redirect');
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: a bulk activation never redirects.
+    if (isset($_GET['activate-multi']) || wp_doing_ajax() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI) || !current_user_can('activate_plugins')) {
+        return;
+    }
+    $connected = function_exists('devdcorev1_account_is_connected') && devdcorev1_account_is_connected();
+    wp_safe_redirect($connected ? admin_url('admin.php?page=' . DEVDBOTP_PAGE) : admin_url('admin.php?page=' . DEVDBOTP_PAGE . '&bp_tab=settings#settings'));
+    exit;
+});
 register_activation_hook(__FILE__, 'devdbotp_activate');
 register_deactivation_hook(__FILE__, 'devdbotp_deactivate');
 

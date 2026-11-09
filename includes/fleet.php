@@ -219,10 +219,18 @@ function devdbotp_fleet_report()
     if (empty($ips) && empty($asns) && empty($hp)) {
         return true;
     }
+    // Security review 2026-10-19 (B8): a connected site signs its report with the site token, so the server can
+    // count distinct CONNECTED sites instead of self-made ids; an unconnected site still reports under its id.
+    $headers = array('Content-Type' => 'application/json');
+    $conn = function_exists('devdbotp_kb_conn') ? devdbotp_kb_conn() : null;
+    if (is_array($conn) && !empty($conn['token']) && !empty($conn['site'])) {
+        $headers['Authorization'] = 'Bearer ' . $conn['token'];
+        $headers['X-DD-Site']     = (string) $conn['site'];
+    }
     $r = wp_remote_post(DEVDBOTP_FLEET_ENDPOINT . '/report', array(
         'user-agent' => 'DevDome-Bot-Protection/' . DEVDBOTP_VERSION, // the report carries a random site id only
         'timeout'  => 10, // a cron job: waiting 10 s for the answer costs nothing, and only an answer proves the report landed
-        'headers'  => array('Content-Type' => 'application/json'),
+        'headers'  => $headers,
         'body'     => wp_json_encode(array('site' => devdbotp_fleet_site_id(), 'ips' => $ips, 'asns' => $asns, 'hp' => $hp)),
     ));
     $ok = !is_wp_error($r) && (int) wp_remote_retrieve_response_code($r) === 200;

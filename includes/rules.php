@@ -283,6 +283,7 @@ function devdbotp_toggle_custom_rule($id, $enabled)
 /** Does one custom rule match the request context? (Pure — used inside the scorer.) */
 function devdbotp_match_custom_rule($rule, $ctx)
 {
+    $hay2 = '';
     $field = isset($rule['match_field']) ? $rule['match_field'] : '';
     $op    = isset($rule['operator']) ? $rule['operator'] : '';
     $pat   = isset($rule['pattern']) ? (string) $rule['pattern'] : '';
@@ -292,7 +293,7 @@ function devdbotp_match_custom_rule($rule, $ctx)
 
     switch ($field) {
         case 'user_agent': $hay = (string) (isset($ctx['ua']) ? $ctx['ua'] : ''); break;
-        case 'path':       $hay = (string) (isset($ctx['path']) ? $ctx['path'] : ''); break;
+        case 'path':       $hay = (string) (isset($ctx['path']) ? $ctx['path'] : ''); $hay2 = (string) (isset($ctx['path_query']) ? $ctx['path_query'] : ''); break;
         case 'ip':         $hay = (string) (isset($ctx['ip']) ? $ctx['ip'] : ''); break;
         case 'country':    $hay = strtoupper((string) (isset($ctx['country']) ? $ctx['country'] : '')); $pat = strtoupper($pat); break;
         case 'asn':        $hay = (string) (int) (isset($ctx['asn']) ? $ctx['asn'] : 0); break;
@@ -303,16 +304,22 @@ function devdbotp_match_custom_rule($rule, $ctx)
         return devdbotp_ip_in_cidr($hay, $pat);
     }
     if (($field === 'user_agent' || $field === 'path') && $op !== 'regex') {
-        $hay = strtolower($hay); // plain operators compare without case; a regex keeps its escapes (\D, \W) meaningful and matches with /i
-        $pat = strtolower($pat);
+        $hay  = strtolower($hay); // plain operators compare without case; a regex keeps its escapes (\D, \W) meaningful and matches with /i
+        $hay2 = strtolower($hay2);
+        $pat  = strtolower($pat);
     }
-    switch ($op) {
-        case 'equals':      return $hay !== '' && $hay === $pat;
-        case 'contains':    return strpos($hay, $pat) !== false;
-        case 'starts_with': return strpos($hay, $pat) === 0;
-        case 'regex':       return @preg_match('~' . str_replace('~', '\~', $pat) . '~i', $hay) === 1;
-    }
-    return false;
+    $test = function ($hay) use ($op, $pat) {
+        switch ($op) {
+            case 'equals':      return $hay !== '' && $hay === $pat;
+            case 'contains':    return strpos($hay, $pat) !== false;
+            case 'starts_with': return strpos($hay, $pat) === 0;
+            case 'regex':       return @preg_match('~' . str_replace('~', '\~', $pat) . '~i', $hay) === 1;
+        }
+        return false;
+    };
+    // Security review 2026-10-19 (B1): a path rule is tried on the path and, when a query string came with the
+    // request, on path + decoded query as well, so "contains rest_route" or "contains ?s=" can match.
+    return $test($hay) || ($hay2 !== '' && $hay2 !== $hay && $test($hay2));
 }
 
 /** Single IPv4/IPv6 CIDR (or bare IP) containment test. */

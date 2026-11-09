@@ -8,6 +8,7 @@ defined('WP_UNINSTALL_PLUGIN') || exit;
 
 function devdbotp_uninstall_site()
 {
+    delete_transient('devdbotp_activation_redirect'); // the first-activation redirect flag (60 s), gone anyway
     global $wpdb;
     $p = $wpdb->prefix . 'devdbotp_';
 
@@ -21,7 +22,7 @@ function devdbotp_uninstall_site()
     wp_unschedule_hook('devdbotp_kb_sync');
     wp_unschedule_hook('devdbotp_kb_push_event');
     // Every transient this plugin writes (their timeout rows too), then the object cache copy of them.
-    foreach (array('devdbotp_kb_series2', 'devdbotp_kb_pulled', 'devdbotp_kb_signal', 'devdbotp_kb_series', 'devdbotp_asn_down') as $tr) {
+    foreach (array('devdbotp_kb_series2', 'devdbotp_kb_pulled', 'devdbotp_kb_signal', 'devdbotp_kb_series', 'devdbotp_asn_down', 'devdbotp_bar_counts') as $tr) {
         delete_transient($tr);
     }
     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- uninstall sweep of this plugin's own transients
